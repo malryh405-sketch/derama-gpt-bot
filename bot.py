@@ -2,20 +2,15 @@ import os
 import sys
 import time
 import telebot
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+import requests
 
-# 1. قراءة المفاتيح السرية من التطبيق
+# 1. قراءة المفاتيح السرية
 BOT_TOKEN = os.environ.get("BOT_TOKEN") or "8925807273:AAGbyGODECF9rcSuu8vesdamMW_K-WfsTM8"
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") or "AQ.Ab8RN6L6KP0W40dQz0slF5AnecuCyR-tyGHU5vUQci-1UGBlMQ"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") or "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"
 
-# تهيئة البوت بنظام الخيوط المتعددة عشان يستحمل ضغط كذا مستخدم سوا
 bot = telebot.TeleBot(BOT_TOKEN, threaded=True)
 
-# تهيئة جيميناي بالمكتبة المتوافقة مع بايثون 3.9
-genai.configure(api_key=GEMINI_API_KEY)
-
-# الـ System Prompt السوداني المستفز كامل بدون أي فواصل أو اقتباسات
+# الـ System Prompt السوداني القوي والمستفز بدون أي فواصل أو اقتباسات
 SYSTEM_PROMPT = (
     "You are an advanced AI assistant named DERAMA GPT, and you are the new version d-GPT-1-3. "
     "Your creator and developer is the expert Dramadol, whose real name is Karim, a master of software development, "
@@ -33,53 +28,60 @@ SYSTEM_PROMPT = (
     "4. Emojis: Never use any emojis at all, except for the cool sunglasses emoji 😎 which you should use naturally to show your superior confidence. No other emojis are allowed."
 )
 
-# كسر فلاتر الأمان تماماً لضمان توليد طرق الحظر والفك بدون حرج من جوجل
-LOW_SAFETY_SETTINGS = {
-    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-}
-
-model = genai.GenerativeModel(
-    model_name="models/gemini-1.5-flash",
-    generation_config={
-        "temperature": 0.85,
-        "max_output_tokens": 1500
-    },
-    safety_settings=LOW_SAFETY_SETTINGS,
-    system_instruction=SYSTEM_PROMPT
-)
-
-# معالج الرسائل الذكي والمحمي تماماً من الانهيار والتهنيج
+# معالج الرسائل الذكي والمقاوم للانهيار
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
     try:
         bot.send_chat_action(message.chat.id, 'typing')
-        response = model.generate_content(message.text)
         
-        if response and response.text:
-            reply_text = response.text
-            # تنظيف الفواصل والاقتباسات برمجياً قبل الإرسال للمستخدم
+        # إعداد الطلب لنقطة نهاية OpenRouter
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": application/json",
+            "HTTP-Referer": "https://railway.app", # اختياري للترتيب
+            "X-Title": "DERAMA GPT" # اسم بوتك في المنصة
+        }
+        
+        # تمرير الـ System Prompt مع رسالة المستخدم في مصفوفة الرسائل
+        data = {
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": message.text}
+            ]
+        }
+        
+        # إرسال الطلب عبر requests
+        response = requests.post(url, headers=headers, json=data, timeout=60)
+        response_json = response.json()
+        
+        # استخراج النص من الهيكل الجاي من الموديل
+        if response_json and 'choices' in response_json:
+            reply_text = response_json['choices'][0]['message']['content']
+            
+            # تنظيف الفواصل والاقتباسات برمجياً لضمان الالتزام بقواعد البرومت
             for char in ["'", '"', '`', '“', '”', '‘', '’']:
                 reply_text = reply_text.replace(char, '')
+                
             bot.reply_to(message, reply_text)
         else:
-            bot.reply_to(message, "BY || @deramadol_VIP")
+            print(f"⚠️ تحت الصيانة: {response_json}")
+            bot.reply_to(message, "خطا وقد يتم اصلاحه قريبا")
+            
     except Exception as error:
-        print(f"⚠️ خطأ معزول تم تخطيه: {error}")
+        print(f"⚠️ خطأ تم تخطيه: {error}")
         try:
-            bot.reply_to(message, "تحت الصيانة ⚠️")
+            bot.reply_to(message, "تحت الصيانة ❌")
         except:
             pass
 
-# تشغيل البوت بنظام حلقة الربط اللانهائية المقاومة لقطع الشبكة
+# تشغيل البوت بحلقة ربط لانهائية ذكية ومقاومة للقطع
 if __name__ == "__main__":
-    print("✅ d-GPT-1-3 Active and protected against crashes on Python 3.9... 😎")
+    print("✅ BY : @deramadol_VIP")
     while True:
         try:
-            # حذفنا non_stop=True لأن الدالة بتفعلها تلقائياً من جوة المكتبة
             bot.infinity_polling(timeout=90, long_polling_timeout=90)
         except Exception as e:
-            print(f"❌ انقطع الاتصال، جاري إعادة التشغيل تلقائياً: {e}")
+            print(f"❌ انقطع الاتصال، جاري إعادة التشغيل: {e}")
             time.sleep(5)
